@@ -1,187 +1,84 @@
 <script lang="ts">
-/**
- * DocumentCard.svelte
- * 
- * Componente per visualizzare un singolo documento nella lista.
- * Fornisce azioni per: visualizzare, scaricare ed eliminare.
- * Pattern Svelte 5: usa callback props invece di eventi custom.
- * 
- * Props:
- * - doc: dati del documento da visualizzare
- * - onDelete: callback chiamata quando si richiede l'eliminazione
- * - readonly: se true, nasconde il pulsante elimina (opzionale)
- */
+  /**
+   * DocumentCard.svelte
+   *
+   * Visualizza una card con i dati estratti di un singolo documento.
+   */
 
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
+  // ============================================================================
+  // TYPE DEFINITIONS
+  // ============================================================================
 
-/** Struttura del documento visualizzato */
-type DocumentData = {
-  id: string;
-  name: string;
-  fileData: string;
-  mime?: string;
-  type?: string;
-  date?: string;
-  client?: string;
-  status?: 'attivo' | 'in revisione' | 'scaduto';
-  uploadedAt?: string;
-};
+  /**
+   * Struttura del documento, allineata con quella definita in +page.svelte
+   */
+  type DocumentData = {
+    id: string;
+    name: string;
+    uploadedAt: string;
+    extracted_data: {
+      tipo_documento?: string;
+      data_documento?: string;
+      soggetti_coinvolti?: string[];
+      descrizione_breve?: string;
+    };
+  };
 
-// ============================================================================
-// PROPS
-// ============================================================================
+  // ============================================================================
+  // PROPS
+  // ============================================================================
 
-/** Dati del documento da visualizzare */
-export let doc: DocumentData;
+  export let doc: DocumentData;
+  export let onDelete: (id: string) => void;
+  export let readonly: boolean = false;
 
-/** Callback per eliminazione documento */
-export let onDelete: (id: string) => void;
+  // ============================================================================
+  // STATE
+  // ============================================================================
 
-/** Modalità readonly (nasconde elimina) */
-export let readonly: boolean = false;
+  let isProcessing: boolean = false;
+  let error: string = '';
 
-// ============================================================================
-// STATE
-// ============================================================================
+  // ============================================================================
+  // ACTIONS HANDLERS
+  // ============================================================================
 
-/** Indica se un'azione è in corso (per disabilitare pulsanti) */
-let isProcessing: boolean = false;
-
-/** Messaggio di errore se un'operazione fallisce */
-let error: string = '';
-
-// ============================================================================
-// ACTIONS HANDLERS
-// ============================================================================
-
-/**
- * Apre il documento in una nuova tab del browser.
- * 
- * ⚠️ NOTA PRODUZIONE:
- * Con base64 questo funziona, ma per file da backend
- * usare URL firmati con scadenza (pre-signed URLs).
- */
-function view() {
-  try {
-    isProcessing = true;
-    error = '';
-
-    // Validazione: verifica che ci sia effettivamente il file
-    if (!doc.fileData) {
-      error = 'Dati del file non disponibili';
-      return;
+  /**
+   * Richiede la conferma ed elimina il documento dalla lista (client-side).
+   */
+  function remove() {
+    if (confirm(`Sei sicuro di voler eliminare "${doc.name}"?`)) {
+      try {
+        isProcessing = true;
+        onDelete(doc.id);
+      } catch (err) {
+        console.error("Errore durante l'eliminazione:", err);
+        error = "Impossibile eliminare il documento.";
+      } finally {
+        isProcessing = false;
+      }
     }
-
-    // Apri in nuova finestra
-    const newWindow = window.open();
-    
-    if (!newWindow) {
-      // Popup bloccato dal browser
-      error = 'Popup bloccato. Abilita i popup per visualizzare il documento.';
-      return;
-    }
-
-    newWindow.location.href = doc.fileData;
-
-  } catch (err) {
-    console.error('Errore durante la visualizzazione:', err);
-    error = 'Errore durante l\'apertura del documento';
-  } finally {
-    isProcessing = false;
   }
-}
 
-/**
- * Scarica il documento sul dispositivo dell'utente.
- * 
- * ⚠️ NOTA PRODUZIONE:
- * Per backend, usare endpoint dedicato che restituisce il file
- * con header appropriati (Content-Disposition, Content-Type).
- */
-function download() {
-  try {
-    isProcessing = true;
-    error = '';
+  // ============================================================================
+  // COMPUTED PROPERTIES
+  // ============================================================================
 
-    // Validazione
-    if (!doc.fileData || !doc.name) {
-      error = 'Dati del file non validi';
-      return;
-    }
+  /** Formatta la data del documento, se presente */
+  $: formattedDate = doc.extracted_data.data_documento
+    ? new Date(doc.extracted_data.data_documento).toLocaleDateString('it-IT', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      })
+    : null;
 
-    // Crea elemento <a> temporaneo per il download
-    const a = document.createElement('a');
-    a.href = doc.fileData;
-    a.download = doc.name;
-    
-    // Aggiungi al DOM, clicca, rimuovi
-    document.body.appendChild(a);
-    a.click();
-    
-    // Cleanup: rimuovi elemento dopo un breve delay
-    setTimeout(() => {
-      document.body.removeChild(a);
-    }, 100);
-
-  } catch (err) {
-    console.error('Errore durante il download:', err);
-    error = 'Errore durante il download del documento';
-  } finally {
-    isProcessing = false;
-  }
-}
-
-/**
- * Richiede la conferma ed elimina il documento.
- * Chiama il callback onDelete del parent.
- */
-function remove() {
-  // Conferma dall'utente
-  const confirmed = confirm(
-    `Sei sicuro di voler eliminare "${doc.name}"?\nQuesta azione non può essere annullata.`
-  );
-
-  if (!confirmed) return;
-
-  try {
-    isProcessing = true;
-    error = '';
-
-    // Chiama callback parent
-    onDelete(doc.id);
-
-  } catch (err) {
-    console.error('Errore durante l\'eliminazione:', err);
-    error = 'Errore durante l\'eliminazione del documento';
-  } finally {
-    isProcessing = false;
-  }
-}
-
-// ============================================================================
-// COMPUTED PROPERTIES
-// ============================================================================
-
-/** Determina se il documento è scaduto per lo stile visuale */
-$: isExpired = doc.status === 'scaduto';
-
-/** Formatta la data in formato leggibile */
-$: formattedDate = doc.date 
-  ? new Date(doc.date).toLocaleDateString('it-IT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    })
-  : 'Data non disponibile';
-
-/** Info metadata concatenate per display */
-$: metadataInfo = [
-  doc.type,
-  doc.client,
-  formattedDate
-].filter(Boolean).join(' • ');
+  /** Crea una stringa di metadati principali per una visualizzazione rapida */
+  $: metadataInfo = [
+    doc.extracted_data.tipo_documento,
+    (doc.extracted_data.soggetti_coinvolti || []).join(', '),
+    formattedDate
+  ].filter(Boolean).join(' • ');
 
 </script>
 
@@ -189,50 +86,65 @@ $: metadataInfo = [
 <!-- TEMPLATE -->
 <!-- ========================================================================== -->
 
-<div class="card" class:expired={isExpired}>
-  
+<div class="flex items-center gap-4 p-4 border border-gray-200 rounded-lg mb-3 bg-white transition-all duration-200 relative overflow-hidden
+            hover:border-blue-400 hover:shadow-lg focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-400 focus-within:ring-opacity-75
+            flex-col sm:flex-row sm:items-center">
+
+  <!-- Icona tipo documento (opzionale) -->
+  <div class="flex-shrink-0 text-xl bg-blue-50 text-blue-600 rounded-full w-10 h-10 flex items-center justify-center">
+    {#if doc.extracted_data.tipo_documento?.toLowerCase() === 'fattura'}
+      🧾
+    {:else if doc.extracted_data.tipo_documento?.toLowerCase() === 'contratto'}
+      ✍️
+    {:else}
+      📄
+    {/if}
+  </div>
+
   <!-- Colonna Metadati -->
-  <div class="meta">
-    <div class="document-name">
+  <div class="flex-1 min-w-0 flex flex-col gap-1 sm:text-left text-center">
+    <div class="font-semibold text-base text-gray-800 truncate" title={doc.name}>
       {doc.name}
     </div>
-    
+
     {#if metadataInfo}
-      <div class="metadata">
+      <div class="text-sm text-gray-600">
         {metadataInfo}
       </div>
     {/if}
 
-    {#if doc.status}
-      <div class="status-badge" data-status={doc.status}>
-        {doc.status}
+    {#if doc.extracted_data.descrizione_breve}
+      <div class="text-sm text-gray-700 mt-1 italic">
+        {doc.extracted_data.descrizione_breve}
       </div>
     {/if}
   </div>
 
   <!-- Colonna Azioni -->
-  <div class="actions">
-    <button 
-      class="action-btn view-btn"
-      on:click={view}
-      disabled={isProcessing}
-      title="Visualizza documento"
+  <div class="flex gap-2 flex-shrink-0 sm:mt-0 mt-3">
+    <button
+      class="px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed opacity-50
+             transition-colors duration-200"
+      disabled={true}
+      title="Funzione non disponibile in questa versione"
     >
       👁️ Vedi
     </button>
 
-    <button 
-      class="action-btn download-btn"
-      on:click={download}
-      disabled={isProcessing}
-      title="Scarica documento"
+    <button
+      class="px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed opacity-50
+             transition-colors duration-200"
+      disabled={true}
+      title="Funzione non disponibile in questa versione"
     >
       ⬇️ Scarica
     </button>
 
     {#if !readonly}
-      <button 
-        class="action-btn delete-btn"
+      <button
+        class="px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-600
+               hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed
+               transition-colors duration-200"
         on:click={remove}
         disabled={isProcessing}
         title="Elimina documento"
@@ -242,170 +154,10 @@ $: metadataInfo = [
     {/if}
   </div>
 
-  <!-- Messaggio errore (se presente) -->
   {#if error}
-    <div class="error-inline">
+    <div class="absolute bottom-1 right-1 text-xs text-red-700 bg-red-100 p-1 rounded-md">
       ⚠️ {error}
     </div>
   {/if}
 
 </div>
-
-<!-- ========================================================================== -->
-<!-- STYLES -->
-<!-- ========================================================================== -->
-
-<style>
-  .card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.8rem;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    margin-bottom: 0.6rem;
-    background: white;
-    transition: all 0.2s ease;
-    position: relative;
-  }
-
-  .card:hover {
-    border-color: #bbb;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  }
-
-  /* Stile per documenti scaduti */
-  .card.expired {
-    border-color: #e07a7a;
-    background: #fff6f6;
-  }
-
-  .card.expired:hover {
-    border-color: #c55;
-  }
-
-  /* Colonna Metadati */
-  .meta {
-    flex: 1;
-    min-width: 0; /* Permette troncamento testo */
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .document-name {
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: #222;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .metadata {
-    font-size: 0.85rem;
-    color: #666;
-  }
-
-  .status-badge {
-    display: inline-block;
-    padding: 0.15rem 0.5rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    width: fit-content;
-  }
-
-  .status-badge[data-status="attivo"] {
-    background: #d4edda;
-    color: #155724;
-  }
-
-  .status-badge[data-status="in revisione"] {
-    background: #fff3cd;
-    color: #856404;
-  }
-
-  .status-badge[data-status="scaduto"] {
-    background: #f8d7da;
-    color: #721c24;
-  }
-
-  /* Colonna Azioni */
-  .actions {
-    display: flex;
-    gap: 0.4rem;
-    flex-shrink: 0;
-  }
-
-  .action-btn {
-    padding: 0.4rem 0.6rem;
-    font-size: 0.85rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background: white;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
-  }
-
-  .action-btn:hover:not(:disabled) {
-    background: #f5f5f5;
-    border-color: #bbb;
-  }
-
-  .action-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .view-btn:hover:not(:disabled) {
-    background: #e3f2fd;
-    border-color: #64b5f6;
-  }
-
-  .download-btn:hover:not(:disabled) {
-    background: #e8f5e9;
-    border-color: #81c784;
-  }
-
-  .delete-btn {
-    color: #c33;
-  }
-
-  .delete-btn:hover:not(:disabled) {
-    background: #ffebee;
-    border-color: #e57373;
-  }
-
-  /* Messaggio errore inline */
-  .error-inline {
-    position: absolute;
-    bottom: -1.5rem;
-    left: 0;
-    right: 0;
-    font-size: 0.8rem;
-    color: #c33;
-    padding: 0.2rem 0.5rem;
-    background: #fee;
-    border-radius: 4px;
-  }
-
-  /* Responsive: mobile */
-  @media (max-width: 640px) {
-    .card {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .actions {
-      width: 100%;
-      justify-content: space-between;
-    }
-
-    .action-btn {
-      flex: 1;
-    }
-  }
-</style>
