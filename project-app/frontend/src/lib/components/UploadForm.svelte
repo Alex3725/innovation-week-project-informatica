@@ -12,11 +12,28 @@
  */
 
 // ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+/** Struttura del documento che verrà creato */
+type DocumentData = {
+  id: string;
+  name: string;
+  fileData: string; // base64 per prototipo, sostituire con URL/path in produzione
+  mime: string;
+  type: string;
+  date: string;
+  client: string;
+  status: 'attivo' | 'in revisione' | 'scaduto';
+  uploadedAt: string;
+};
+
+// ============================================================================
 // PROPS & STATE
 // ============================================================================
 
 /** Callback per notificare l'aggiunta di un documento */
-export let onAdd: (file: File, metadata: { type: string; date: string; client: string; status: 'attivo' | 'in revisione' | 'scaduto'; }) => void;
+export let onAdd: (doc: DocumentData) => void;
 
 /** Dimensione massima file in MB */
 export let maxFileSize: number = 10;
@@ -76,12 +93,54 @@ function onFileChange(e: Event) {
 }
 
 // ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Genera un ID univoco per il documento.
+ * NOTA: In produzione usare UUID dal backend.
+ */
+function genId(): string {
+  return `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+}
+
+/**
+ * Converte un file in data URL (base64).
+ * 
+ * ⚠️ NOTA IMPORTANTE PER PRODUZIONE:
+ * Questa funzione è OK solo per prototipi o file piccoli (<5MB).
+ * Per produzione, usare FormData e upload streaming al backend.
+ * 
+ * @see Document index 1 per implementazione corretta con FormData
+ */
+function toDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === 'string') {
+        resolve(result);
+      } else {
+        reject(new Error('Errore nella lettura del file'));
+      }
+    };
+    
+    reader.onerror = () => {
+      reject(new Error('Errore durante la lettura del file'));
+    };
+    
+    reader.readAsDataURL(file);
+  });
+}
+
+// ============================================================================
 // FORM SUBMISSION
 // ============================================================================
 
 /**
  * Gestisce l'invio del form.
- * Valida i dati, e chiama il callback onAdd.
+ * Valida i dati, converte il file e chiama il callback onAdd.
  */
 async function onSubmit(e: Event) {
   e.preventDefault();
@@ -98,13 +157,24 @@ async function onSubmit(e: Event) {
   try {
     isLoading = true;
 
-    // Chiama callback del parent
-    await onAdd(file, {
+    // Converti file in base64 (solo per prototipo!)
+    const dataUrl = await toDataURL(file);
+
+    // Crea oggetto documento
+    const doc: DocumentData = {
+      id: genId(),
+      name: file.name,
+      fileData: dataUrl,
+      mime: file.type,
       type: type.trim(),
       date: date,
       client: client.trim(),
       status: status,
-    });
+      uploadedAt: new Date().toISOString()
+    };
+
+    // Chiama callback del parent
+    onAdd(doc);
 
     // Reset form dopo successo
     resetForm();
@@ -142,132 +212,72 @@ function resetForm() {
 <!-- TEMPLATE -->
 <!-- ========================================================================== -->
 
-<form
-  on:submit={onSubmit}
-  class="
-    grid grid-cols-2 gap-3 items-end
-    max-sm:grid-cols-1
-  "
->
-  <!-- ================= ERRORE ================= -->
+<form on:submit={onSubmit} class="upload-form">
+  
+  <!-- Messaggio di errore -->
   {#if error}
-    <div
-      class="
-        col-span-full
-        rounded border border-red-300 bg-red-50
-        px-3 py-2 text-sm text-red-700
-      "
-    >
+    <div class="error-message">
       ⚠️ {error}
     </div>
   {/if}
 
-  <!-- ================= FILE ================= -->
-  <div class="flex flex-col gap-1">
-    <label for="file-input" class="text-sm font-medium text-gray-800">
+  <!-- Campo File -->
+  <div class="form-field">
+    <label for="file-input">
       File *
-      <span class="ml-1 text-xs font-normal text-gray-500">
-        (Max {maxFileSize}MB)
-      </span>
+      <span class="help-text">(Max {maxFileSize}MB)</span>
     </label>
-
-    <input
-      id="file-input"
-      type="file"
-      on:change={onFileChange}
-      required
+    <input 
+      id="file-input" 
+      type="file" 
+      on:change={onFileChange} 
+      required 
       disabled={isLoading}
-      class="
-        w-full rounded border border-gray-300
-        px-2 py-2 text-sm
-        file:mr-3 file:rounded file:border-0
-        file:bg-gray-100 file:px-3 file:py-1.5
-        file:text-sm file:font-medium
-        hover:file:bg-gray-200
-        focus:outline-none focus:ring-2 focus:ring-blue-200
-        disabled:cursor-not-allowed disabled:bg-gray-100
-      "
     />
   </div>
 
-  <!-- ================= TIPO ================= -->
-  <div class="flex flex-col gap-1">
-    <label for="type-input" class="text-sm font-medium text-gray-800">
-      Tipo documento
-    </label>
-
-    <input
+  <!-- Campo Tipo -->
+  <div class="form-field">
+    <label for="type-input">Tipo documento</label>
+    <input 
       id="type-input"
-      type="text"
-      bind:value={type}
+      type="text" 
+      bind:value={type} 
       placeholder="es. Fattura, Contratto, Preventivo"
       disabled={isLoading}
-      class="
-        w-full rounded border border-gray-300
-        px-2 py-2 text-sm
-        focus:outline-none focus:ring-2 focus:ring-blue-200
-        disabled:cursor-not-allowed disabled:bg-gray-100
-      "
     />
   </div>
 
-  <!-- ================= DATA ================= -->
-  <div class="flex flex-col gap-1">
-    <label for="date-input" class="text-sm font-medium text-gray-800">
-      Data documento
-    </label>
-
-    <input
+  <!-- Campo Data -->
+  <div class="form-field">
+    <label for="date-input">Data documento</label>
+    <input 
       id="date-input"
-      type="date"
+      type="date" 
       bind:value={date}
       disabled={isLoading}
-      class="
-        w-full rounded border border-gray-300
-        px-2 py-2 text-sm
-        focus:outline-none focus:ring-2 focus:ring-blue-200
-        disabled:cursor-not-allowed disabled:bg-gray-100
-      "
     />
   </div>
 
-  <!-- ================= CLIENTE ================= -->
-  <div class="flex flex-col gap-1">
-    <label for="client-input" class="text-sm font-medium text-gray-800">
-      Cliente / Progetto
-    </label>
-
-    <input
+  <!-- Campo Cliente -->
+  <div class="form-field">
+    <label for="client-input">Cliente / Progetto</label>
+    <input 
       id="client-input"
-      type="text"
-      bind:value={client}
+      type="text" 
+      bind:value={client} 
       placeholder="Nome cliente o progetto"
       disabled={isLoading}
-      class="
-        w-full rounded border border-gray-300
-        px-2 py-2 text-sm
-        focus:outline-none focus:ring-2 focus:ring-blue-200
-        disabled:cursor-not-allowed disabled:bg-gray-100
-      "
     />
   </div>
 
-  <!-- ================= STATO ================= -->
-  <div class="flex flex-col gap-1">
-    <label for="status-select" class="text-sm font-medium text-gray-800">
-      Stato
-    </label>
-
-    <select
+  <!-- Campo Stato -->
+  <div class="form-field">
+    <label for="status-select">Stato</label>
+    <select 
       id="status-select"
       bind:value={status}
       disabled={isLoading}
-      class="
-        w-full rounded border border-gray-300
-        px-2 py-2 text-sm
-        focus:outline-none focus:ring-2 focus:ring-blue-200
-        disabled:cursor-not-allowed disabled:bg-gray-100
-      "
     >
       <option value="attivo">Attivo</option>
       <option value="in revisione">In revisione</option>
@@ -275,24 +285,119 @@ function resetForm() {
     </select>
   </div>
 
-  <!-- ================= SUBMIT ================= -->
-  <div class="col-span-full">
-    <button
-      type="submit"
+  <!-- Bottone Submit -->
+  <div class="submit-wrapper">
+    <button 
+      type="submit" 
       disabled={isLoading || !file}
-      class="
-        w-full rounded bg-blue-500 px-4 py-3
-        text-sm font-medium text-white
-        transition
-        hover:bg-blue-600
-        disabled:cursor-not-allowed disabled:bg-gray-400
-        flex items-center justify-center gap-2
-      "
+      class:loading={isLoading}
     >
       {isLoading ? 'Caricamento...' : 'Carica documento'}
-      {#if isLoading}
-        <span>⏳</span>
-      {/if}
     </button>
   </div>
+
 </form>
+
+<!-- ========================================================================== -->
+<!-- STYLES -->
+<!-- ========================================================================== -->
+
+<style>
+  .upload-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+    align-items: end;
+  }
+
+  .error-message {
+    grid-column: 1 / -1;
+    padding: 0.6rem;
+    background: #fee;
+    border: 1px solid #fcc;
+    border-radius: 4px;
+    color: #c33;
+    font-size: 0.9rem;
+  }
+
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .form-field label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #333;
+  }
+
+  .help-text {
+    font-weight: normal;
+    color: #666;
+    font-size: 0.8rem;
+  }
+
+  .form-field input,
+  .form-field select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+
+  .form-field input:focus,
+  .form-field select:focus {
+    outline: none;
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+  }
+
+  .form-field input:disabled,
+  .form-field select:disabled {
+    background: #f5f5f5;
+    cursor: not-allowed;
+  }
+
+  .submit-wrapper {
+    grid-column: 1 / -1;
+  }
+
+  button[type="submit"] {
+    width: 100%;
+    padding: 0.7rem;
+    background: #4a90e2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  button[type="submit"]:hover:not(:disabled) {
+    background: #357abd;
+  }
+
+  button[type="submit"]:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+
+  button[type="submit"].loading {
+    position: relative;
+  }
+
+  button[type="submit"].loading::after {
+    content: '⏳';
+    margin-left: 0.5rem;
+  }
+
+  /* Responsive: mobile */
+  @media (max-width: 640px) {
+    .upload-form {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

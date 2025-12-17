@@ -93,106 +93,60 @@ function handleDelete(id: string) {
 <!-- ========================================================================== -->
 <!-- TEMPLATE -->
 <!-- ========================================================================== -->
-<div class="w-full">
 
-  <!-- ================= LOADING ================= -->
+<div class="document-list">
+
+  <!-- STATO: Loading -->
   {#if isLoading}
-    <div
-      class="
-        flex flex-col items-center justify-center
-        px-4 py-12 text-center text-gray-600
-        max-sm:py-8
-      "
-    >
-      <div
-        class="
-          mb-4 h-10 w-10 animate-spin
-          rounded-full border-4
-          border-gray-200 border-t-blue-500
-          motion-reduce:animate-none
-        "
-      ></div>
-      <p class="text-sm">Caricamento documenti...</p>
+    <div class="state-message loading">
+      <div class="spinner"></div>
+      <p>Caricamento documenti...</p>
     </div>
 
-  <!-- ================= ERRORE ================= -->
+  <!-- STATO: Errore -->
   {:else if error}
-    <div
-      class="
-        flex flex-col items-center justify-center
-        px-4 py-12 text-center
-        text-red-700 max-sm:py-8
-      "
-    >
-      <div class="mb-2 text-4xl">⚠️</div>
-      <p class="mb-2 text-lg font-semibold">
-        Si è verificato un errore
-      </p>
-      <p class="max-w-md text-sm text-gray-600">
-        {error}
-      </p>
+    <div class="state-message error">
+      <div class="error-icon">⚠️</div>
+      <p class="error-title">Si è verificato un errore</p>
+      <p class="error-detail">{error}</p>
     </div>
 
-  <!-- ================= EMPTY ================= -->
+  <!-- STATO: Lista vuota -->
   {:else if isEmpty}
-    <div
-      class="
-        flex flex-col items-center justify-center
-        px-4 py-12 text-center
-        text-gray-500 max-sm:py-8
-      "
-    >
-      <div class="mb-4 text-6xl opacity-30 max-sm:text-5xl">
-        📄
-      </div>
-      <p class="mb-2 text-lg font-semibold text-gray-600">
-        Nessun documento presente
-      </p>
-      <p class="text-sm text-gray-400">
+    <div class="state-message empty">
+      <div class="empty-icon">📄</div>
+      <p class="empty-title">Nessun documento presente</p>
+      <p class="empty-subtitle">
         Carica il tuo primo documento per iniziare
       </p>
     </div>
 
-  <!-- ================= LISTA ================= -->
+  <!-- STATO: Lista con documenti -->
   {:else}
-    <div class="w-full">
-
-      <!-- Header -->
-      <div
-        class="
-          mb-3 flex items-center justify-between
-          px-1 text-sm font-medium text-gray-500
-          max-sm:flex-col max-sm:items-start max-sm:gap-2
-        "
-      >
-        <span>
-          {documents.length}
-          {documents.length === 1 ? ' documento' : ' documenti'}
+    <div class="documents-container">
+      
+      <!-- Header lista (opzionale, mostra conteggio) -->
+      <div class="list-header">
+        <span class="document-count">
+          {documents.length} {documents.length === 1 ? 'documento' : 'documenti'}
         </span>
       </div>
 
-      <!-- Cards -->
-      <div class="flex flex-col">
+      <!-- Cards documenti -->
+      <div class="cards-wrapper">
         {#each displayedDocuments as doc (doc.id)}
-          <DocumentCard
-            {doc}
+          <DocumentCard 
+            {doc} 
             {readonly}
             onDelete={handleDelete}
           />
         {/each}
       </div>
 
-      <!-- Hidden indicator -->
+      <!-- Indicatore documenti nascosti -->
       {#if hiddenCount > 0}
-        <div
-          class="
-            mt-2 border-t border-dashed border-gray-300
-            px-2 py-3 text-center
-            text-sm italic text-gray-500
-          "
-        >
-          + altri {hiddenCount}
-          {hiddenCount === 1 ? ' documento' : ' documenti'}
+        <div class="hidden-indicator">
+          + altri {hiddenCount} {hiddenCount === 1 ? 'documento' : 'documenti'}
         </div>
       {/if}
 
@@ -200,3 +154,158 @@ function handleDelete(id: string) {
   {/if}
 
 </div>
+
+<!-- ========================================================================== -->
+<!-- STYLES -->
+<!-- ========================================================================== -->
+
+<style>
+  .document-list {
+    width: 100%;
+  }
+
+  /* ===== STATI: Loading, Error, Empty ===== */
+  
+  .state-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1rem;
+    text-align: center;
+  }
+
+  /* Loading state */
+  .state-message.loading {
+    color: #666;
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #4a90e2;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Error state */
+  .state-message.error {
+    color: #c33;
+  }
+
+  .error-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .error-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .error-detail {
+    font-size: 0.9rem;
+    color: #666;
+    max-width: 400px;
+  }
+
+  /* Empty state */
+  .state-message.empty {
+    color: #999;
+  }
+
+  .empty-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.3;
+  }
+
+  .empty-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 0.5rem;
+  }
+
+  .empty-subtitle {
+    font-size: 0.9rem;
+    color: #999;
+  }
+
+  /* ===== LISTA CON DOCUMENTI ===== */
+
+  .documents-container {
+    width: 100%;
+  }
+
+  .list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.8rem;
+    padding: 0 0.2rem;
+  }
+
+  .document-count {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #666;
+  }
+
+  .cards-wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .hidden-indicator {
+    text-align: center;
+    padding: 0.8rem;
+    color: #666;
+    font-size: 0.9rem;
+    font-style: italic;
+    border-top: 1px dashed #ddd;
+    margin-top: 0.5rem;
+  }
+
+  /* ===== RESPONSIVE ===== */
+
+  @media (max-width: 640px) {
+    .state-message {
+      padding: 2rem 1rem;
+    }
+
+    .empty-icon {
+      font-size: 3rem;
+    }
+
+    .list-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+  }
+
+  /* ===== ACCESSIBILITÀ ===== */
+
+  /* Focus visibile per navigazione tastiera */
+  :global(.card:focus-within) {
+    outline: 2px solid #4a90e2;
+    outline-offset: 2px;
+  }
+
+  /* Riduci motion per utenti con preferenze accessibilità */
+  @media (prefers-reduced-motion: reduce) {
+    .spinner {
+      animation: none;
+      border-top-color: #666;
+    }
+  }
+</style>

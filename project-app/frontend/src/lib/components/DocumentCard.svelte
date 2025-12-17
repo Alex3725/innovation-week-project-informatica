@@ -189,59 +189,31 @@ $: metadataInfo = [
 <!-- TEMPLATE -->
 <!-- ========================================================================== -->
 
-<div
-  class="
-    relative mb-2 flex items-center justify-between gap-4
-    rounded-md border border-gray-200 bg-white p-3
-    transition-all duration-200
-    hover:border-gray-400 hover:shadow-sm
-  "
-  class:border-red-300={isExpired}
-  class:bg-red-50={isExpired}
->
-  <!-- ================= METADATI ================= -->
-  <div class="flex min-w-0 flex-1 flex-col gap-1">
-    <div
-      class="truncate text-sm font-semibold text-gray-900"
-      title={doc.name}
-    >
+<div class="card" class:expired={isExpired}>
+  
+  <!-- Colonna Metadati -->
+  <div class="meta">
+    <div class="document-name">
       {doc.name}
     </div>
-
+    
     {#if metadataInfo}
-      <div class="text-sm text-gray-500">
+      <div class="metadata">
         {metadataInfo}
       </div>
     {/if}
 
     {#if doc.status}
-      <span
-        class="
-          w-fit rounded-full px-2 py-0.5
-          text-xs font-medium
-        "
-        class:bg-green-100={doc.status === 'attivo'}
-        class:text-green-800={doc.status === 'attivo'}
-        class:bg-yellow-100={doc.status === 'in revisione'}
-        class:text-yellow-800={doc.status === 'in revisione'}
-        class:bg-red-100={doc.status === 'scaduto'}
-        class:text-red-800={doc.status === 'scaduto'}
-      >
+      <div class="status-badge" data-status={doc.status}>
         {doc.status}
-      </span>
+      </div>
     {/if}
   </div>
 
-  <!-- ================= AZIONI ================= -->
-  <div class="flex shrink-0 gap-2 max-sm:w-full max-sm:justify-between">
-    <button
-      class="
-        rounded border border-gray-300 bg-white
-        px-2.5 py-1.5 text-sm
-        transition
-        hover:border-blue-400 hover:bg-blue-50
-        disabled:cursor-not-allowed disabled:opacity-50
-      "
+  <!-- Colonna Azioni -->
+  <div class="actions">
+    <button 
+      class="action-btn view-btn"
       on:click={view}
       disabled={isProcessing}
       title="Visualizza documento"
@@ -249,14 +221,8 @@ $: metadataInfo = [
       👁️ Vedi
     </button>
 
-    <button
-      class="
-        rounded border border-gray-300 bg-white
-        px-2.5 py-1.5 text-sm
-        transition
-        hover:border-green-400 hover:bg-green-50
-        disabled:cursor-not-allowed disabled:opacity-50
-      "
+    <button 
+      class="action-btn download-btn"
       on:click={download}
       disabled={isProcessing}
       title="Scarica documento"
@@ -265,14 +231,8 @@ $: metadataInfo = [
     </button>
 
     {#if !readonly}
-      <button
-        class="
-          rounded border border-gray-300 bg-white
-          px-2.5 py-1.5 text-sm text-red-600
-          transition
-          hover:border-red-400 hover:bg-red-50
-          disabled:cursor-not-allowed disabled:opacity-50
-        "
+      <button 
+        class="action-btn delete-btn"
         on:click={remove}
         disabled={isProcessing}
         title="Elimina documento"
@@ -282,16 +242,170 @@ $: metadataInfo = [
     {/if}
   </div>
 
-  <!-- ================= ERRORE ================= -->
+  <!-- Messaggio errore (se presente) -->
   {#if error}
-    <div
-      class="
-        absolute -bottom-6 left-0 right-0
-        rounded bg-red-100 px-2 py-1
-        text-xs text-red-700
-      "
-    >
+    <div class="error-inline">
       ⚠️ {error}
     </div>
   {/if}
+
 </div>
+
+<!-- ========================================================================== -->
+<!-- STYLES -->
+<!-- ========================================================================== -->
+
+<style>
+  .card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.8rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    margin-bottom: 0.6rem;
+    background: white;
+    transition: all 0.2s ease;
+    position: relative;
+  }
+
+  .card:hover {
+    border-color: #bbb;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Stile per documenti scaduti */
+  .card.expired {
+    border-color: #e07a7a;
+    background: #fff6f6;
+  }
+
+  .card.expired:hover {
+    border-color: #c55;
+  }
+
+  /* Colonna Metadati */
+  .meta {
+    flex: 1;
+    min-width: 0; /* Permette troncamento testo */
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .document-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #222;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .metadata {
+    font-size: 0.85rem;
+    color: #666;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    width: fit-content;
+  }
+
+  .status-badge[data-status="attivo"] {
+    background: #d4edda;
+    color: #155724;
+  }
+
+  .status-badge[data-status="in revisione"] {
+    background: #fff3cd;
+    color: #856404;
+  }
+
+  .status-badge[data-status="scaduto"] {
+    background: #f8d7da;
+    color: #721c24;
+  }
+
+  /* Colonna Azioni */
+  .actions {
+    display: flex;
+    gap: 0.4rem;
+    flex-shrink: 0;
+  }
+
+  .action-btn {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .action-btn:hover:not(:disabled) {
+    background: #f5f5f5;
+    border-color: #bbb;
+  }
+
+  .action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .view-btn:hover:not(:disabled) {
+    background: #e3f2fd;
+    border-color: #64b5f6;
+  }
+
+  .download-btn:hover:not(:disabled) {
+    background: #e8f5e9;
+    border-color: #81c784;
+  }
+
+  .delete-btn {
+    color: #c33;
+  }
+
+  .delete-btn:hover:not(:disabled) {
+    background: #ffebee;
+    border-color: #e57373;
+  }
+
+  /* Messaggio errore inline */
+  .error-inline {
+    position: absolute;
+    bottom: -1.5rem;
+    left: 0;
+    right: 0;
+    font-size: 0.8rem;
+    color: #c33;
+    padding: 0.2rem 0.5rem;
+    background: #fee;
+    border-radius: 4px;
+  }
+
+  /* Responsive: mobile */
+  @media (max-width: 640px) {
+    .card {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .actions {
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    .action-btn {
+      flex: 1;
+    }
+  }
+</style>

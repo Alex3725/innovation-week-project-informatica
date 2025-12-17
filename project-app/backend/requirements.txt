@@ -1,6 +1,7 @@
 flask
 flask-cors
-PyPDF2
-ollama
-werkzeug
 python-dotenv
+requests
+ollama
+PyPDF2
+python-docx

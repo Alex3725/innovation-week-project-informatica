@@ -23,7 +23,7 @@
 // ============================================================================
 
 import { onMount } from 'svelte';
-import { UploadForm, DocumentList, Filters } from '../lib';
+import { UploadForm, DocumentList, Filters } from '$lib';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -33,7 +33,7 @@ import { UploadForm, DocumentList, Filters } from '../lib';
 type Doc = {
 	id: string;
 	name: string;
-	fileData?: string;
+	fileData: string;
 	mime?: string;
 	type?: string;
 	date?: string;
@@ -132,56 +132,17 @@ function save() {
 // ============================================================================
 
 /**
- * Genera un ID univoco per il documento.
- * NOTA: In produzione usare UUID dal backend.
- */
-function genId(): string {
-  return `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-}
-
-/**
  * Aggiunge un nuovo documento alla lista.
  * Callback chiamata da UploadForm.
  */
-async function addDocument(file: File, metadata: { type: string; date: string; client: string; status: 'attivo' | 'in revisione' | 'scaduto'; }) {
-	const formData = new FormData();
-	formData.append('file', file);
-
-	try {
-		const response = await fetch('http://127.0.0.1:5000/extract', {
-			method: 'POST',
-			body: formData,
-		});
-
-		if (!response.ok) {
-			const errorData = await response.json();
-			throw new Error(errorData.error || 'Errore del server');
-		}
-
-		const result = await response.json();
-		const extracted = JSON.parse(result.extracted_features);
-
-		const newDoc: Doc = {
-			id: genId(),
-			name: file.name,
-			mime: file.type,
-			type: extracted.type || metadata.type,
-			date: extracted.date || metadata.date,
-			client: metadata.client,
-			status: metadata.status,
-			uploadedAt: new Date().toISOString(),
-		};
-
-		documents = [newDoc, ...documents];
-		save();
-
-		console.log('Documento aggiunto:', newDoc.name);
-	} catch (err) {
-		console.error('Errore durante l\'aggiunta del documento:', err);
-		alert('Errore durante l\'aggiunta del documento: ' + (err as Error).message);
-	}
+function addDocument(doc: Doc) {
+	// Aggiungi in cima alla lista (più recenti prima)
+	documents = [doc, ...documents];
+	save();
+	
+	// Log per debug (rimuovere in produzione)
+	console.log('Documento aggiunto:', doc.name);
 }
-
 
 /**
  * Elimina un documento dalla lista.
@@ -288,67 +249,202 @@ $: if (documents) {
 <!-- ========================================================================== -->
 <!-- TEMPLATE -->
 <!-- ========================================================================== -->
-<main class="min-h-screen bg-gray-100 p-6 sm:p-4">
 
-  <!-- Header -->
-  <header class="text-center mb-8">
-    <h1 class="text-2xl font-bold text-gray-900 mb-2 sm:text-xl">
-      📁 Archivio Documenti
-    </h1>
-    <p class="text-sm text-gray-600">
-      Prototipo gestione documentale con metadati e filtri
-    </p>
-  </header>
+<main class="app-main">
+	
+	<!-- Header -->
+	<header class="app-header">
+		<h1 class="app-title">
+			📁 Archivio Documenti
+		</h1>
+		<p class="app-subtitle">
+			Prototipo gestione documentale con metadati e filtri
+		</p>
+	</header>
 
-  <!-- Layout a 2 colonne -->
-  <div class="grid gap-6 max-w-[1400px] mx-auto grid-cols-1 lg:grid-cols-[1fr_1.5fr]">
+	<!-- Layout a 2 colonne -->
+	<div class="app-layout">
+		
+		<!-- COLONNA SINISTRA: Upload -->
+		<section class="left-column">
+			<div class="section-card">
+				<h2 class="section-title">Carica Documento</h2>
+				<UploadForm 
+					onAdd={addDocument}
+					maxFileSize={10}
+				/>
+			</div>
+		</section>
 
-    <!-- COLONNA SINISTRA: Upload -->
-    <section class="flex flex-col gap-6">
-      <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">
-          Carica Documento
-        </h2>
-        <UploadForm 
-          onAdd={addDocument}
-          maxFileSize={10}
-        />
-      </div>
-    </section>
+		<!-- COLONNA DESTRA: Lista e Filtri -->
+		<section class="right-column">
+			
+			<!-- Sezione Filtri -->
+			<div class="section-card filters-card">
+				<Filters 
+					onFilter={onFilter}
+					debounceMs={300}
+				/>
+			</div>
 
-    <!-- COLONNA DESTRA: Lista e Filtri -->
-    <section class="flex flex-col gap-6">
+			<!-- Sezione Lista Documenti -->
+			<div class="section-card list-card">
+				<DocumentList 
+					documents={filtered}
+					onDelete={deleteDocument}
+					isLoading={isLoading}
+					error={loadingError}
+				/>
+			</div>
 
-      <!-- Sezione Filtri -->
-      <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-        <Filters 
-          onFilter={onFilter}
-          debounceMs={300}
-        />
-      </div>
+		</section>
 
-      <!-- Sezione Lista Documenti -->
-      <div class="flex-1 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-        <DocumentList 
-          documents={filtered}
-          onDelete={deleteDocument}
-          isLoading={isLoading}
-          error={loadingError}
-        />
-      </div>
+	</div>
 
-    </section>
-
-  </div>
-
-  <!-- Footer info (opzionale) -->
-  <footer class="mt-12 pt-6 border-t border-dashed border-gray-300 text-center">
-    <p class="text-xs text-gray-400 leading-relaxed">
-      ⚠️ Prototipo: i dati sono salvati localmente nel browser.
-      {#if documents.length > 0}
-        <br>Totale documenti: <strong>{documents.length}</strong>
-      {/if}
-    </p>
-  </footer>
+	<!-- Footer info (opzionale) -->
+	<footer class="app-footer">
+		<p class="footer-text">
+			⚠️ Prototipo: i dati sono salvati localmente nel browser.
+			{#if documents.length > 0}
+				<br>Totale documenti: <strong>{documents.length}</strong>
+			{/if}
+		</p>
+	</footer>
 
 </main>
+
+<!-- ========================================================================== -->
+<!-- STYLES -->
+<!-- ========================================================================== -->
+
+<style>
+	/* ===== LAYOUT PRINCIPALE ===== */
+
+	.app-main {
+		min-height: 100vh;
+		background: #f8f9fa;
+		padding: 1.5rem;
+	}
+
+	.app-header {
+		text-align: center;
+		margin-bottom: 2rem;
+	}
+
+	.app-title {
+		font-size: 1.8rem;
+		font-weight: 700;
+		color: #222;
+		margin-bottom: 0.5rem;
+	}
+
+	.app-subtitle {
+		font-size: 0.95rem;
+		color: #666;
+	}
+
+	/* ===== LAYOUT A 2 COLONNE ===== */
+
+	.app-layout {
+		display: grid;
+		grid-template-columns: 1fr 1.5fr;
+		gap: 1.5rem;
+		max-width: 1400px;
+		margin: 0 auto;
+	}
+
+	/* Colonne */
+	.left-column,
+	.right-column {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
+
+	/* Card sezioni */
+	.section-card {
+		background: white;
+		border: 1px solid #e0e0e0;
+		border-radius: 8px;
+		padding: 1.5rem;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+	}
+
+	.section-title {
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: #333;
+		margin-bottom: 1rem;
+		padding-bottom: 0.5rem;
+		border-bottom: 2px solid #f0f0f0;
+	}
+
+	.filters-card {
+		padding: 1rem;
+	}
+
+	.list-card {
+		flex: 1;
+	}
+
+	/* ===== FOOTER ===== */
+
+	.app-footer {
+		margin-top: 3rem;
+		padding-top: 1.5rem;
+		border-top: 1px dashed #ddd;
+		text-align: center;
+	}
+
+	.footer-text {
+		font-size: 0.85rem;
+		color: #999;
+		line-height: 1.6;
+	}
+
+	/* ===== RESPONSIVE ===== */
+
+	/* Tablet */
+	@media (max-width: 1024px) {
+		.app-layout {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	/* Mobile */
+	@media (max-width: 640px) {
+		.app-main {
+			padding: 1rem;
+		}
+
+		.app-title {
+			font-size: 1.4rem;
+		}
+
+		.section-card {
+			padding: 1rem;
+		}
+
+		.app-footer {
+			margin-top: 2rem;
+		}
+	}
+
+	/* ===== PRINT STYLES ===== */
+
+	@media print {
+		.app-main {
+			background: white;
+		}
+
+		.left-column,
+		.app-footer {
+			display: none;
+		}
+
+		.section-card {
+			box-shadow: none;
+			border: 1px solid #ddd;
+		}
+	}
+</style>
